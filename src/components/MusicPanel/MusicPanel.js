@@ -70,7 +70,7 @@ export function MusicPanel({ volume }) {
         setIsPlaying(prevIsPlaying => !prevIsPlaying);
     }, []);
 
-    const handlePrevious = () => {
+    const handlePrevious = useCallback(() => {
         const now = Date.now();
         if (now - lastTapTimeRef.current < 1000) {
             setCurrentTrackIndex((prevIndex) => 
@@ -80,13 +80,15 @@ export function MusicPanel({ volume }) {
             audioRef.current.currentTime = 0;
         }
         lastTapTimeRef.current = now;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    const handleNext = () => {
+    const handleNext = useCallback(() => {
         setCurrentTrackIndex((prevIndex) => 
             prevIndex === tracks.length - 1 ? 0 : prevIndex + 1
         );
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const formatTime = (time) => {
         const minutes = Math.floor(time / 60);

@@ -4,7 +4,7 @@ import { getImagePath } from '../../utils/assetPaths';
 import './UserProfile.css';
 
 const profiles = [
-  { id: 1, name: 'James', image: getImagePath("profile01.svg") },
+  { id: 1, name: 'Joseph', image: getImagePath("profile01.jpg") },
   { id: 2, name: 'Lauren', image: getImagePath("icon-profile-default.svg") },
   { id: 3, name: 'Guest', image: getImagePath("icon-profile-default.svg") },
   { id: 4, name: 'Valet', image: getImagePath("icon-valet.svg") },

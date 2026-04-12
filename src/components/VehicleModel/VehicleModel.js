@@ -27,6 +27,7 @@ function Model({ rotateToFrunk, rotateToTrunk, activeGear, ...props }) {
   const animationProgressRef = useRef(0);
   const isAnimatingRef = useRef(false);
   const defaultRotation = Math.PI;
+  // eslint-disable-next-line no-unused-vars
   const [isDriving, setIsDriving] = useState(false);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ function Model({ rotateToFrunk, rotateToTrunk, activeGear, ...props }) {
     }
     animationProgressRef.current = 0;
     isAnimatingRef.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rotateToFrunk, rotateToTrunk, activeGear]);
 
   useFrame((state, delta) => {

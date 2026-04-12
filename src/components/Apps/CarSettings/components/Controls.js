@@ -34,8 +34,10 @@ export const Controls = () => {
   };
 
   // Row 4: Various controls
-  const [mirrorsOn, setMirrorsOn] = useState(false);
-  const [steeringOn, setSteeringOn] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [mirrorsOn] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [steeringOn] = useState(false);
   const [dashcamOn, setDashcamOn] = useState(false);
   const [sentryModeOn, setSentryModeOn] = useState(false);
   const [showCarWashMode, setShowCarWashMode] = useState(false);

@@ -12,6 +12,7 @@ const VolumeModal = ({ volume, onVolumeChange, onClose, onOpenAudioSettings }) =
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetCloseTimer = () => {

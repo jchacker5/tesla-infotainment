@@ -6,8 +6,8 @@ const UserProfileContext = createContext();
 export const UserProfileProvider = ({ children }) => {
   const [activeProfile, setActiveProfile] = useState({
     id: 1,
-    name: 'James',
-    image: getImagePath("profile01.svg")
+    name: 'Joseph',
+    image: getImagePath("profile01.jpg")
   });
 
   return (

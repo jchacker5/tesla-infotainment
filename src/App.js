@@ -4,6 +4,7 @@ import { VehicleModel } from './components/VehicleModel/VehicleModel';
 import { getImagePath } from './utils/assetPaths';
 import { UserProfileProvider } from './contexts/UserProfileContext';
 import { CarLockProvider } from './contexts/CarLockContext';
+import { SavedRoutesProvider } from './contexts/SavedRoutesContext';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { MapNavigation } from './components/MapNavigation/MapNavigation';
 import { MusicPanel } from './components/MusicPanel/MusicPanel';
@@ -11,12 +12,10 @@ import { Modal } from './components/Modal/Modal';
 import VerticalSliderPanel from './components/VerticalSliderPanel/VerticalSliderPanel';
 import BtmNavBar from './components/BtmNavBar/BtmNavBar';
 import CarLock from './components/CarLock/CarLock';
-import VolumeControl from './components/VolumeControl/VolumeControl';
 import TemperatureControl from './components/TemperatureControl/TemperatureControl';
 import BatteryStatus from './components/BatteryStatus/BatteryStatus';
 import GearSelect from './components/GearSelect/GearSelect';
 import ErrorScreen from './components/ErrorScreen/ErrorScreen';
-import { useDots } from './utils/dots';
 import './App.css';
 
 const formatAppName = (appName) => {
@@ -41,11 +40,10 @@ function App() {
   const [isCameraForced, setIsCameraForced] = useState(false);
   const [isPanelResizable, setIsPanelResizable] = useState(false);
   const DEFAULT_LEFT_PANEL_SIZE = 40;
-  const dots = useDots();
   const [leftTurnSignal, setLeftTurnSignal] = useState(false);
   const [rightTurnSignal, setRightTurnSignal] = useState(false);
-  const [isRearViewCameraActive, setIsRearViewCameraActive] = useState(false);
-  const [isWifiMenuOpen, setIsWifiMenuOpen] = useState(false);
+  const [, setIsRearViewCameraActive] = useState(false);
+  const [, setIsWifiMenuOpen] = useState(false);
 
   const appsTopShelf = [
     'wipers',
@@ -325,6 +323,7 @@ function App() {
   };
 
   return (
+    <SavedRoutesProvider>
     <CarLockProvider>
       <UserProfileProvider>
         {isLoading && <LoadingScreen />}
@@ -417,6 +416,7 @@ function App() {
         </div>
       </UserProfileProvider>
     </CarLockProvider>
+    </SavedRoutesProvider>
   );
 }
 

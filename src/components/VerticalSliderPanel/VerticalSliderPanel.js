@@ -9,6 +9,7 @@ import { CarSettings } from '../Apps/CarSettings/CarSettings';
 import { Dashcam } from '../Apps/Dashcam/Dashcam';
 import { Podcasts } from '../Apps/Podcasts/Podcasts';
 import { Toybox } from '../Apps/Toybox/Toybox';
+import { SavedRoutes } from '../Apps/SavedRoutes/SavedRoutes';
 
 const VerticalSliderPanel = ({ isOpen, activeIcon, onClose, isCameraForced }) => {
     const [isDragging, setIsDragging] = useState(false);
@@ -66,12 +67,6 @@ const VerticalSliderPanel = ({ isOpen, activeIcon, onClose, isCameraForced }) =>
         }
     };
 
-    const handleClose = () => {
-        if (!isCameraForced) {
-            onClose();
-        }
-    };
-
     const renderContent = () => {
         switch (activeIcon) {
             case 'apple-music':
@@ -92,6 +87,8 @@ const VerticalSliderPanel = ({ isOpen, activeIcon, onClose, isCameraForced }) =>
                 return <Podcasts />;
             case 'toybox':
                 return <Toybox />;
+            case 'saved-routes':
+                return <SavedRoutes />;
             default:
                 return null;
         }

@@ -6,6 +6,7 @@ import Clock from '../Clock/Clock';
 import OutsideTemp from '../OutsideTemp/OutsideTemp';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import UserProfile from '../UserProfile/UserProfile';
+import { useSavedRoutes } from '../../contexts/SavedRoutesContext';
 import './MapNavigation.css';
 import './MapNavigationAutocomplete.css';
 
@@ -34,6 +35,9 @@ export function MapNavigation({ onWifiClick }) {
   const [isNavigating, setIsNavigating] = useState(false);
   const inputRef = useRef(null);  // New ref for the input element
   const [inputValue, setInputValue] = useState('');  // New state for input value
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveRouteName, setSaveRouteName] = useState('');
+  const { saveRoute, selectedRoute, clearSelectedRoute } = useSavedRoutes();
 
   // Memoize the loader options so it doesn't re-create on every render
   const loaderOptions = useMemo(() => ({
@@ -53,6 +57,52 @@ export function MapNavigation({ onWifiClick }) {
       setDirectionsService(new window.google.maps.DirectionsService());
     }
   }, [isLoaded]);
+
+  // Handle navigation from saved routes
+  useEffect(() => {
+    if (selectedRoute && directionsService) {
+      const dest = selectedRoute.destination;
+      setSearchResult({ lat: dest.lat, lng: dest.lng });
+      setInputValue(selectedRoute.name);
+      if (inputRef.current) {
+        inputRef.current.value = selectedRoute.name;
+      }
+      if (mapRef.current) {
+        mapRef.current.panTo({ lat: dest.lat, lng: dest.lng });
+        mapRef.current.setZoom(16);
+      }
+      // Auto-calculate route
+      directionsService.route(
+        {
+          origin: center,
+          destination: { lat: dest.lat, lng: dest.lng },
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            setDirections(result);
+            setIsNavigating(true);
+          }
+        }
+      );
+      clearSelectedRoute();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoute, directionsService]);
+
+  const handleSaveRoute = () => {
+    if (!saveRouteName.trim()) return;
+    saveRoute({
+      name: saveRouteName.trim(),
+      destination: {
+        lat: searchResult.lat,
+        lng: searchResult.lng,
+        address: inputValue,
+      },
+    });
+    setShowSaveInput(false);
+    setSaveRouteName('');
+  };
 
   const onLoad = useCallback(function callback(map) {
     mapRef.current = map;
@@ -142,7 +192,7 @@ export function MapNavigation({ onWifiClick }) {
       newTrafficLayer.setMap(mapRef.current);
       setTrafficLayer(newTrafficLayer);
     }
-  }, [mapType]);
+  }, [mapType, trafficLayer]);
 
   const handleLocation = () => {
     if (navigator.geolocation) {
@@ -278,9 +328,36 @@ export function MapNavigation({ onWifiClick }) {
           </button>
         )}
         {isNavigating && (
-          <button className="floatingBtn endNavigateBtn" onClick={endNavigation}>
-            End Navigation
-          </button>
+          <div className="navigatingBtnsWrapper">
+            <button className="floatingBtn endNavigateBtn" onClick={endNavigation}>
+              End Navigation
+            </button>
+            {!showSaveInput ? (
+              <button
+                className="floatingBtn saveRouteBtn"
+                onClick={() => { setShowSaveInput(true); setSaveRouteName(inputValue); }}
+              >
+                <img src={getImagePath("icon-settings-navigation.svg")} alt="Save" className="saveRouteIcon" />
+                Save Route
+              </button>
+            ) : (
+              <div className="saveRouteInputWrapper">
+                <input
+                  className="saveRouteInput"
+                  type="text"
+                  placeholder="Route name..."
+                  value={saveRouteName}
+                  onChange={(e) => setSaveRouteName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRoute(); if (e.key === 'Escape') setShowSaveInput(false); }}
+                  autoFocus
+                />
+                <button className="saveRouteConfirmBtn" onClick={handleSaveRoute}>Save</button>
+                <button className="saveRouteCancelBtn" onClick={() => setShowSaveInput(false)}>
+                  <img src={getImagePath("icon-x.svg")} alt="Cancel" />
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <div className="floatingRightBtnsWrapper">
           <button className="floatingBtn squareBtn compassDirection" onClick={handleCompass}>

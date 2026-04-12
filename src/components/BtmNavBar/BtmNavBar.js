@@ -16,6 +16,7 @@ const BtmNavBar = ({
 }) => {
     const dockApps = [
         'camera',
+        'saved-routes',
         // 'calendar',
         // 'toybox',
         // 'theater',
