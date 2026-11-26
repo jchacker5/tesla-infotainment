@@ -2,7 +2,7 @@
   "name": "tesla-ui",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://jamesalmeida.github.io/tesla-infotainment",
+  "homepage": "https://jchacker5.github.io/tesla-infotainment",
   "dependencies": {
     "@mui/material": "^5.16.7",
     "@react-google-maps/api": "^2.19.3",
@@ -11,7 +11,6 @@
     "@react-three/fiber": "^8.17.5",
     "@react-three/gltfjsx": "^4.3.4",
     "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "docx": "^9.6.1",
     "react": "^18.3.1",
@@ -50,6 +49,11 @@
     ]
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "gh-pages": "^6.1.1"
+  },
+  "engines": {
+    "node": ">=22 <25"
   }
 }

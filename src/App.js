@@ -205,44 +205,37 @@ function App() {
   const appContentRef = useRef(null);
 
   useEffect(() => {
+    let pollTimer;
+    let finishTimer;
+    let fallbackTimer;
+    let finished = false;
+    const finishLoading = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(pollTimer);
+      clearTimeout(finishTimer);
+      clearTimeout(fallbackTimer);
+      setIsLoading(false);
+    };
     const checkIfLoaded = () => {
-      if (appContentRef.current) {
-        const images = Array.from(appContentRef.current.querySelectorAll('img'));
-        console.log(`Checking ${images.length} images`);
-        
-        const allLoaded = images.every((img) => {
-          const isLoaded = img.complete && img.naturalHeight !== 0;
-          if (!isLoaded) {
-            console.log(`Image not loaded: ${img.src}`);
-          }
-          return isLoaded;
-        });
-
-        if (allLoaded) {
-          console.log('All images loaded, waiting 5 seconds before hiding loading screen');
-          setTimeout(() => {
-            console.log('3 seconds passed, setting isLoading to false');
-            setIsLoading(false);
-          }, 3000);
-        } else {
-          console.log('Not all images loaded, checking again in 100ms');
-          setTimeout(checkIfLoaded, 100);
-        }
+      if (finished) return;
+      const images = appContentRef.current?.querySelectorAll('img');
+      // Failed images are settled too; unavailable external artwork must not
+      // leave a polling loop alive after the loading screen has disappeared.
+      if (images && Array.from(images).every(image => image.complete)) {
+        finishTimer = setTimeout(finishLoading, 3000);
       } else {
-        console.log('appContentRef.current is null, checking again in 100ms');
-        setTimeout(checkIfLoaded, 100);
+        pollTimer = setTimeout(checkIfLoaded, 100);
       }
     };
-
     checkIfLoaded();
-
-    // Fallback timer to ensure loading screen doesn't stay indefinitely
-    const fallbackTimer = setTimeout(() => {
-      console.log('Fallback timer triggered, forcing isLoading to false');
-      setIsLoading(false);
-    }, 15000); // 15 seconds fallback (5 seconds delay + 10 seconds original fallback)
-
-    return () => clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(finishLoading, 15000);
+    return () => {
+      finished = true;
+      clearTimeout(pollTimer);
+      clearTimeout(finishTimer);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   // For keyboard shortcuts

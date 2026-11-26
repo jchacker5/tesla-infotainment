@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { getImagePath } from '../../utils/assetPaths';
-import { GoogleMap, useJsApiLoader, Marker, Autocomplete, DirectionsRenderer } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Autocomplete, DirectionsRenderer, TrafficLayer } from '@react-google-maps/api';
 import CarLock from '../CarLock/CarLock';
 import Clock from '../Clock/Clock';
 import OutsideTemp from '../OutsideTemp/OutsideTemp';
 import LoadingSpinner from '../LoadingSpinner/LoadingSpinner';
 import UserProfile from '../UserProfile/UserProfile';
-import { useSavedRoutes } from '../../contexts/SavedRoutesContext';
+import { useSavedRoutes, isDestination } from '../../contexts/SavedRoutesContext';
 import './MapNavigation.css';
 import './MapNavigationAutocomplete.css';
 
@@ -16,14 +16,14 @@ const containerStyle = {
 };
 
 const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-const MAP_ID = '2d1b7cd2cf277f7';
+const MAP_ID = process.env.REACT_APP_GOOGLE_MAPS_MAP_ID || '2d1b7cd2cf277f7';
 
 const libraries = ['places'];
 
 export function MapNavigation({ onWifiClick }) {
   const [center, setCenter] = useState({ lat: 33.9210278, lng: -118.33005555555555 }); // Default location
   const [mapType, setMapType] = useState('roadmap');
-  const [trafficLayer, setTrafficLayer] = useState(null);
+  const [showTraffic, setShowTraffic] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [chargers, setChargers] = useState([]);
   const [searchResult, setSearchResult] = useState(null);
@@ -32,12 +32,16 @@ export function MapNavigation({ onWifiClick }) {
   const [markerIcon, setMarkerIcon] = useState(null);
   const [directions, setDirections] = useState(null);
   const [directionsService, setDirectionsService] = useState(null);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const inputRef = useRef(null);  // New ref for the input element
-  const [inputValue, setInputValue] = useState('');  // New state for input value
+  const [activeDestination, setActiveDestination] = useState(null);
+  const [isRouting, setIsRouting] = useState(false);
+  const [navigationError, setNavigationError] = useState('');
+  const routeRequestId = useRef(0);
+  const isNavigating = activeDestination !== null;
+  const inputRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveRouteName, setSaveRouteName] = useState('');
-  const { saveRoute, selectedRoute, clearSelectedRoute } = useSavedRoutes();
+  const { saveRoute, selectedRoute, clearSelectedRoute, storageError } = useSavedRoutes();
 
   // Memoize the loader options so it doesn't re-create on every render
   const loaderOptions = useMemo(() => ({
@@ -46,7 +50,7 @@ export function MapNavigation({ onWifiClick }) {
     libraries: libraries,
   }), []);
 
-  const { isLoaded } = useJsApiLoader(loaderOptions);
+  const { isLoaded, loadError } = useJsApiLoader(loaderOptions);
 
   useEffect(() => {
     if (isLoaded && window.google) {
@@ -58,50 +62,67 @@ export function MapNavigation({ onWifiClick }) {
     }
   }, [isLoaded]);
 
-  // Handle navigation from saved routes
-  useEffect(() => {
-    if (selectedRoute && directionsService) {
-      const dest = selectedRoute.destination;
-      setSearchResult({ lat: dest.lat, lng: dest.lng });
-      setInputValue(selectedRoute.name);
-      if (inputRef.current) {
-        inputRef.current.value = selectedRoute.name;
-      }
-      if (mapRef.current) {
-        mapRef.current.panTo({ lat: dest.lat, lng: dest.lng });
-        mapRef.current.setZoom(16);
-      }
-      // Auto-calculate route
-      directionsService.route(
-        {
-          origin: center,
-          destination: { lat: dest.lat, lng: dest.lng },
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK) {
-            setDirections(result);
-            setIsNavigating(true);
-          }
-        }
-      );
-      clearSelectedRoute();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoute, directionsService]);
-
-  const handleSaveRoute = () => {
-    if (!saveRouteName.trim()) return;
-    saveRoute({
-      name: saveRouteName.trim(),
-      destination: {
-        lat: searchResult.lat,
-        lng: searchResult.lng,
-        address: inputValue,
-      },
-    });
+  const cancelRoute = useCallback(() => {
+    // Google Maps requests cannot be cancelled; invalidating their callbacks
+    // prevents an older request from restoring a cancelled or replaced route.
+    routeRequestId.current += 1;
+    setDirections(null);
+    setActiveDestination(null);
+    setIsRouting(false);
     setShowSaveInput(false);
     setSaveRouteName('');
+    setNavigationError('');
+  }, []);
+
+  const requestRoute = useCallback((destination) => {
+    if (!directionsService || !isDestination(destination)) return;
+    cancelRoute();
+    const requestId = routeRequestId.current;
+    const routeDestination = { ...destination };
+    setIsRouting(true);
+    directionsService.route(
+      {
+        origin: center,
+        destination: { lat: destination.lat, lng: destination.lng },
+        travelMode: window.google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (requestId !== routeRequestId.current) return;
+        setIsRouting(false);
+        if (status === window.google.maps.DirectionsStatus.OK && result) {
+          setDirections(result);
+          setActiveDestination(routeDestination);
+        } else {
+          setNavigationError(status === 'ZERO_RESULTS'
+            ? 'No driving route found. Try another destination.'
+            : 'Unable to get directions. Please try again.');
+        }
+      }
+    );
+  }, [directionsService, center, cancelRoute]);
+
+  useEffect(() => () => { routeRequestId.current += 1; }, []);
+
+  // Saved entries are destinations: get a fresh route from the current location.
+  useEffect(() => {
+    if (!selectedRoute || !directionsService) return;
+    const destination = selectedRoute.destination;
+    setSearchResult(destination);
+    setInputValue(destination.address);
+    if (mapRef.current) {
+      mapRef.current.panTo({ lat: destination.lat, lng: destination.lng });
+      mapRef.current.setZoom(16);
+    }
+    requestRoute(destination);
+    clearSelectedRoute();
+  }, [selectedRoute, directionsService, requestRoute, clearSelectedRoute]);
+
+  const handleSaveRoute = () => {
+    if (!saveRouteName.trim() || !activeDestination) return;
+    if (saveRoute({ name: saveRouteName.trim(), destination: activeDestination })) {
+      setShowSaveInput(false);
+      setSaveRouteName('');
+    }
   };
 
   const onLoad = useCallback(function callback(map) {
@@ -113,50 +134,47 @@ export function MapNavigation({ onWifiClick }) {
   };
 
   const onPlaceChanged = () => {
-    if (autocomplete !== null) {
-      const place = autocomplete.getPlace();
-      if (place.geometry) {
-        const newSearchResult = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng(),
-        };
-        setSearchResult(newSearchResult);
-        
-        // Prioritize name, then formatted_address, then construct from address_components
-        let newValue = place.name;
-        if (!newValue && place.formatted_address) {
-          newValue = place.formatted_address;
-        } else if (!newValue && place.address_components) {
-          newValue = place.address_components
-            .map(component => component.long_name)
-            .join(', ');
-        }
-
-        setInputValue(newValue);
-        if (inputRef.current) {
-          inputRef.current.value = newValue;
-        }
-        if (mapRef.current) {
-          mapRef.current.panTo(newSearchResult);
-          mapRef.current.setZoom(16);
-        }
-      }
+    if (!autocomplete) return;
+    const place = autocomplete.getPlace();
+    cancelRoute();
+    setSearchResult(null);
+    if (!place.geometry?.location) {
+      setNavigationError('Select a destination from the search suggestions.');
+      return;
+    }
+    const address = place.formatted_address || place.name ||
+      (place.address_components || []).map(component => component.long_name).join(', ');
+    const destination = {
+      lat: place.geometry.location.lat(),
+      lng: place.geometry.location.lng(),
+      address,
+    };
+    if (!isDestination(destination)) {
+      setNavigationError('This destination has no usable location. Please choose another.');
+      return;
+    }
+    setSearchResult(destination);
+    setInputValue(address);
+    if (mapRef.current) {
+      mapRef.current.panTo({ lat: destination.lat, lng: destination.lng });
+      mapRef.current.setZoom(16);
     }
   };
 
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
+  const handleInputChange = (event) => {
+    cancelRoute();
+    setInputValue(event.target.value);
+    setSearchResult(null);
   };
 
   const clearInput = () => {
+    cancelRoute();
     setInputValue('');
     setSearchResult(null);
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
   };
 
-  const onUnmount = useCallback(function callback(map) {
+  const onUnmount = useCallback(function callback() {
+    routeRequestId.current += 1;
     mapRef.current = null;
   }, []);
 
@@ -171,28 +189,9 @@ export function MapNavigation({ onWifiClick }) {
   };
 
   const toggleTraffic = () => {
-    if (mapRef.current) {
-      if (trafficLayer) {
-        trafficLayer.setMap(null);
-        setTrafficLayer(null);
-      } else {
-        if (mapType === 'satellite') {
-          setMapType('roadmap');
-        }
-        const newTrafficLayer = new window.google.maps.TrafficLayer();
-        newTrafficLayer.setMap(mapRef.current);
-        setTrafficLayer(newTrafficLayer);
-      }
-    }
+    if (!showTraffic) setMapType('roadmap');
+    setShowTraffic(show => !show);
   };
-
-  useEffect(() => {
-    if (mapRef.current && mapType === 'roadmap' && trafficLayer) {
-      const newTrafficLayer = new window.google.maps.TrafficLayer();
-      newTrafficLayer.setMap(mapRef.current);
-      setTrafficLayer(newTrafficLayer);
-    }
-  }, [mapType, trafficLayer]);
 
   const handleLocation = () => {
     if (navigator.geolocation) {
@@ -211,13 +210,13 @@ export function MapNavigation({ onWifiClick }) {
           setIsLocating(false);  // Stop loading
         },
         () => {
-          console.log("Error: The Geolocation service failed.");
+          setNavigationError("Unable to get your location. Check location access and try again.");
           setIsLocating(false);  // Stop loading even if there's an error
         },
         { timeout: 10000 }  // Set a timeout of 10 seconds
       );
     } else {
-      console.log("Error: Your browser doesn't support geolocation.");
+      setNavigationError("Your browser does not support location access.");
     }
   };
 
@@ -238,37 +237,10 @@ export function MapNavigation({ onWifiClick }) {
     }
   };
 
-  const calculateRoute = () => {
-    if (directionsService && searchResult) {
-      directionsService.route(
-        {
-          origin: center,
-          destination: searchResult,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK) {
-            setDirections(result);
-            setIsNavigating(true);
-          } else {
-            console.error(`error fetching directions ${result}`);
-          }
-        }
-      );
-    }
-  };
+  const calculateRoute = () => requestRoute(searchResult);
 
   const endNavigation = () => {
-    setIsNavigating(false);
-    setSearchResult(null);
-    setDirections(null);
-    
-    // Clear the input field
-    if (inputRef.current) {
-      inputRef.current.value = '';
-    }
-    
-    // Center the map on the current location
+    clearInput();
     if (mapRef.current) {
       mapRef.current.panTo(center);
       mapRef.current.setZoom(16);
@@ -297,6 +269,11 @@ export function MapNavigation({ onWifiClick }) {
         </div>
       </div>
       <div className="mapOverlayWrapper">
+        {(loadError || navigationError || storageError) && (
+          <div className="navigationError" role="alert">
+            {loadError ? 'The map could not be loaded. Check your connection and Maps configuration.' : navigationError || storageError}
+          </div>
+        )}
         {isLoaded && (
           <Autocomplete
             onLoad={onAutocompleteLoad}
@@ -310,22 +287,28 @@ export function MapNavigation({ onWifiClick }) {
                 ref={inputRef}
                 placeholder="Navigate" 
                 name="NavigateTo"
-                defaultValue={inputValue}
+                value={inputValue}
                 onChange={handleInputChange}
                 id="navigateTo"
               />
               {inputValue && (
-                <button className="clearInput" onClick={clearInput}>
+                <button type="button" className="clearInput" onClick={clearInput}>
                   <img src={getImagePath("icon-x.svg")} alt="Clear input" />
                 </button>
               )}
             </form>
           </Autocomplete>
         )}
-        {searchResult && !isNavigating && (
+        {searchResult && !isNavigating && !isRouting && (
           <button className="floatingBtn navigateBtn" onClick={calculateRoute}>
             Navigate
           </button>
+        )}
+        {isRouting && (
+          <div className="navigatingBtnsWrapper" role="status">
+            <span>Finding directions…</span>
+            <button className="floatingBtn endNavigateBtn" onClick={endNavigation}>Cancel Navigation</button>
+          </div>
         )}
         {isNavigating && (
           <div className="navigatingBtnsWrapper">
@@ -335,7 +318,7 @@ export function MapNavigation({ onWifiClick }) {
             {!showSaveInput ? (
               <button
                 className="floatingBtn saveRouteBtn"
-                onClick={() => { setShowSaveInput(true); setSaveRouteName(inputValue); }}
+                onClick={() => { setShowSaveInput(true); setSaveRouteName(activeDestination.address); }}
               >
                 <img src={getImagePath("icon-settings-navigation.svg")} alt="Save" className="saveRouteIcon" />
                 Save Route
@@ -351,7 +334,7 @@ export function MapNavigation({ onWifiClick }) {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRoute(); if (e.key === 'Escape') setShowSaveInput(false); }}
                   autoFocus
                 />
-                <button className="saveRouteConfirmBtn" onClick={handleSaveRoute}>Save</button>
+                <button className="saveRouteConfirmBtn" disabled={!saveRouteName.trim()} onClick={handleSaveRoute}>Save</button>
                 <button className="saveRouteCancelBtn" onClick={() => setShowSaveInput(false)}>
                   <img src={getImagePath("icon-x.svg")} alt="Cancel" />
                 </button>
@@ -367,7 +350,7 @@ export function MapNavigation({ onWifiClick }) {
             <button className="floatingBtn squareBtn btnGroup" onClick={toggleMapType}>
               <img className="icon" src={getImagePath("icon-globe.svg")} alt="Map Style" />
             </button>
-            <button className="floatingBtn squareBtn btnGroup" onClick={toggleTraffic}>
+            <button className="floatingBtn squareBtn btnGroup" onClick={toggleTraffic} aria-pressed={showTraffic}>
               <img className="icon" src={getImagePath("icon-traffic.svg")} alt="Toggle Traffic" />
             </button>
             <button className="floatingBtn squareBtn btnGroup" onClick={handleLocation}>
@@ -404,6 +387,7 @@ export function MapNavigation({ onWifiClick }) {
               fullscreenControl: false
             }}
           >
+            {showTraffic && mapType === 'roadmap' && <TrafficLayer />}
             {markerIcon && (
               <Marker
                 position={center}

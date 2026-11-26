@@ -32,39 +32,57 @@ export function MusicPanel({ volume }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const audioRef = useRef(new Audio(tracks[currentTrackIndex].audio));
+    const audioRef = useRef(null);
     const lastTapTimeRef = useRef(0);
     const progressBarRef = useRef(null);
     const currentTimeRef = useRef(0);
 
     useEffect(() => {
-        const audio = audioRef.current;
+        const audio = new Audio();
+        audioRef.current = audio;
+        const updateProgress = () => {
+            currentTimeRef.current = audio.currentTime;
+            setCurrentTime(audio.currentTime);
+        };
+        const updateDuration = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+        const endPlayback = () => setIsPlaying(false);
         audio.addEventListener('timeupdate', updateProgress);
-        audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
+        audio.addEventListener('loadedmetadata', updateDuration);
+        audio.addEventListener('ended', endPlayback);
         return () => {
+            audio.pause();
             audio.removeEventListener('timeupdate', updateProgress);
-            audio.removeEventListener('loadedmetadata', () => {});
+            audio.removeEventListener('loadedmetadata', updateDuration);
+            audio.removeEventListener('ended', endPlayback);
+            audio.removeAttribute('src');
+            audio.load();
+            audioRef.current = null;
         };
     }, []);
 
     useEffect(() => {
-        audioRef.current.src = tracks[currentTrackIndex].audio;
+        const audio = audioRef.current;
+        audio.src = tracks[currentTrackIndex].audio;
+        currentTimeRef.current = 0;
+        setCurrentTime(0);
+        setDuration(0);
+    }, [currentTrackIndex]);
+
+    useEffect(() => {
+        let cancelled = false;
         if (isPlaying) {
-            audioRef.current.play().catch(error => console.error("Playback failed:", error));
+            audioRef.current.play().catch(() => {
+                if (!cancelled) setIsPlaying(false);
+            });
         } else {
             audioRef.current.pause();
         }
-        audioRef.current.currentTime = currentTimeRef.current;
+        return () => { cancelled = true; };
     }, [currentTrackIndex, isPlaying]);
 
     useEffect(() => {
-        audioRef.current.volume = volume / 100;
+        audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
     }, [volume]);
-
-    const updateProgress = () => {
-        currentTimeRef.current = audioRef.current.currentTime;
-        setCurrentTime(currentTimeRef.current);
-    };
 
     const togglePlayPause = useCallback(() => {
         setIsPlaying(prevIsPlaying => !prevIsPlaying);
@@ -80,26 +98,26 @@ export function MusicPanel({ volume }) {
             audioRef.current.currentTime = 0;
         }
         lastTapTimeRef.current = now;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleNext = useCallback(() => {
         setCurrentTrackIndex((prevIndex) => 
             prevIndex === tracks.length - 1 ? 0 : prevIndex + 1
         );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const formatTime = (time) => {
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
+        const safeTime = Number.isFinite(time) ? Math.max(0, time) : 0;
+        const minutes = Math.floor(safeTime / 60);
+        const seconds = Math.floor(safeTime % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
     const handleProgressBarClick = useCallback((event) => {
         const progressBar = progressBarRef.current;
+        if (!progressBar || progressBar.offsetWidth <= 0 || !Number.isFinite(duration) || duration <= 0) return;
         const clickPosition = (event.clientX - progressBar.getBoundingClientRect().left) / progressBar.offsetWidth;
-        audioRef.current.currentTime = clickPosition * duration;
+        audioRef.current.currentTime = Math.max(0, Math.min(1, clickPosition)) * duration;
     }, [duration]);
     const handleProgressBarDrag = useCallback((event) => {
         if (event.buttons === 1) {
@@ -109,12 +127,12 @@ export function MusicPanel({ volume }) {
 
     useEffect(() => {
         const handleKeyDown = (event) => {
-            if (event.shiftKey) {
+            if (event.target.closest?.('input, textarea, [contenteditable="true"]') || event.repeat) return;
+            if (event.key === ' ') {
+                event.preventDefault();
+                togglePlayPause();
+            } else if (event.shiftKey) {
                 switch (event.key) {
-                    case ' ':
-                        event.preventDefault();
-                        togglePlayPause();
-                        break;
                     case '>':
                         event.preventDefault();
                         handleNext();
@@ -155,7 +173,7 @@ export function MusicPanel({ volume }) {
                 >
                     <div 
                         className="progressForeground" 
-                        style={{width: `${(currentTime / duration) * 100}%`}}
+                        style={{width: `${duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0}%`}}
                     >
                         <div className="progressIndicator ctaBtn"></div>
                     </div>

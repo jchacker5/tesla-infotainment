@@ -160,3 +160,41 @@
   opacity: 1;
   filter: invert(0.4) sepia(1) saturate(5) hue-rotate(340deg);
 }
+
+.saved-route-rename-btn,
+.saved-route-rename-form button {
+  color: #fff;
+  background: #444;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.saved-route-rename-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.saved-route-rename-form input {
+  min-width: 0;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.saved-route-rename-form input:focus-visible,
+.saved-route-actions button:focus-visible {
+  outline: 2px solid #90caf9;
+  outline-offset: 2px;
+}
+
+.saved-route-rename-form button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+  .saved-route-item { align-items: stretch; flex-direction: column; gap: 10px; }
+  .saved-route-actions { margin-left: 0; }
+}
