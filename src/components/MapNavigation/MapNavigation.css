@@ -363,3 +363,16 @@ input:focus {
         margin-left: 5px;
     }
 }
+.navigationError {
+  position: absolute;
+  left: 25px;
+  right: 100px;
+  bottom: 20px;
+  padding: 12px;
+  border-radius: 6px;
+  color: #7f1d1d;
+  background: #fff4f4;
+  box-shadow: 0 2px 6px #0003;
+}
+
+.saveRouteConfirmBtn:disabled { opacity: 0.5; cursor: default; }

@@ -15,16 +15,19 @@ Save your frequent destinations and navigate to them with a single tap — just 
 
 - **Save while navigating** — A save button appears during active navigation so you can bookmark any route
 - **Saved Routes panel** — Access all your saved routes from the bottom dock; view destination, name, and date saved
-- **One-tap navigation** — Select any saved route to instantly begin turn-by-turn directions
-- **Persistent storage** — Routes are saved to localStorage so they survive page refreshes
+- **One-tap navigation** — Select a saved destination to request a fresh driving route from your current map location
+- **Persistent storage** — Valid saved destinations survive refreshes through localStorage and synchronize between tabs. If storage is blocked or full, the panel stays usable and explains that changes last only for the current session.
 - **Full CRUD** — Save, rename, delete, and navigate to routes seamlessly
+
+Each saved entry contains a name, destination coordinates, address, and creation date. It bookmarks a **destination**, not a fixed road-by-road itinerary, waypoints, or an FSD preference. Google Maps recalculates directions when you navigate. This is a browser demonstration and does not connect to a vehicle or alter FSD routing.
 
 ### Other Enhancements
 - Custom user profile integration
-- Resolved all fixable lint and console warnings across the codebase
+- Request ordering and cancellation prevent stale directions from restoring old navigation
+- Managed map layers, audio, timers, and arcade state have matching cleanup on unmount
 
 ## Features
-- Realistic 3D model of Tesla Model Y — open the trunk and frunk!
+- Interactive 3D model of Tesla Model 3 — open the trunk and frunk!
 - Interactive infotainment system simulation with podcast playback, volume control, and more
 - Put the car in reverse (click R) and see the backup camera
 - Google Maps with search, traffic layers, and map style options
@@ -41,10 +44,10 @@ Save your frequent destinations and navigate to them with a single tap — just 
 - Shift + C: Backup Camera
 
 ### Gear Selection
-- P: Park
-- R: Reverse
-- N: Neutral
-- D: Drive
+- 1: Park (P)
+- 2: Reverse (R)
+- 3: Neutral (N)
+- 4: Drive (D)
 
 ### Music Controls
 - Space: Play/Pause
@@ -52,17 +55,17 @@ Save your frequent destinations and navigate to them with a single tap — just 
 - Shift + >: Next track
 
 ## Quick Start
-To run the project locally:
+Use Node.js 24 (Node.js 22 is also supported). To run the project locally:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/jamesalmeida/tesla-infotainment.git
+   git clone https://github.com/jchacker5/tesla-infotainment.git
    cd tesla-infotainment
    ```
 
 2. Install dependencies:
    ```
-   npm install
+   npm ci
    ```
 
 3. Use the `.env.template` to create your own `.env` file. Add your API key for [Google Maps](https://cloud.google.com/maps-platform) and also a mapID for the maps styles to match Tesla's car maps. You can use mine (it's in the template) or create your own.
@@ -73,7 +76,7 @@ To run the project locally:
    npm start
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Build for Production
 To create a production-ready build:
@@ -84,9 +87,19 @@ npm run build
 
 This command builds the app for production to the `build` folder, optimizing the build for the best performance.
 
-### `npm run deploy`
-To make this project work as a Github Page, I added this command to deploy to a Github Page. You'll want to add the `PUBLIC_URL` to your `.env` file to point to your Github Pages URL.
+## Validation and Deployment
 
+```sh
+npm ci
+CI=true npm test -- --watchAll=false --runInBand
+CI=true npm run build
+```
+
+The committed npm lockfile is used by both local installs and CI. Pull requests and main-branch pushes run the React regression suite and production build with warnings treated as errors. A successful main-branch build deploys through the existing GitHub Pages workflow. `npm run deploy` is available for manual gh-pages deployments; the default homepage points to this fork. Set `PUBLIC_URL` only when deploying at a different path.
+
+Tests cover malformed storage, quota errors, distinct IDs, rename/delete/restore, cross-tab updates, out-of-order and cancelled directions, navigation state reset, traffic-layer cleanup, map-loading errors, audio lifecycle, and arcade controls/cleanup. Google Maps is mocked in unit tests: a real API key, network connection, and browser are required to validate live Google routing and map styling. External audio and arcade assets also depend on their hosts being reachable.
+
+Saved entries stay in browser storage; searching and requesting directions sends the selected locations to Google Maps. The Maps API key is included in the browser bundle, so configure application/referrer and API restrictions in Google Cloud. The optional `REACT_APP_GOOGLE_MAPS_MAP_ID` setting is read from the environment.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

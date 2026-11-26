@@ -33,8 +33,5 @@ yarn-error.log*
 *.bak
 *.cache
 
-# Optional: Uncomment if using npm
-package-lock.json
-
 # Optional: Uncomment if using yarn
 # yarn.lock

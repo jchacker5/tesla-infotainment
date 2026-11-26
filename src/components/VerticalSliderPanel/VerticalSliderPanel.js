@@ -32,10 +32,11 @@ const VerticalSliderPanel = ({ isOpen, activeIcon, onClose, isCameraForced }) =>
     useEffect(() => {
         if (!isOpen) {
             setIsClosing(true);
-            setTimeout(() => {
+            const timeout = setTimeout(() => {
                 setIsClosing(false);
                 setCurrentY(0);
             }, 300); // Match this with your CSS transition duration
+            return () => clearTimeout(timeout);
         } else {
             setIsClosing(false);
             setCurrentY(0);
